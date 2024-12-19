@@ -16,7 +16,7 @@ process_cost = 25
 
 seto = "splashmix"
 work = "picswap"
-app_path = "/superheroes-dev"
+app_path = "/superheroes" #Muy importante para que cargue bien app.py
 server_port=7888
 tema = gr.themes.Default()
 flag = "auto"
