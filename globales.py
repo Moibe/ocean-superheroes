@@ -1,7 +1,7 @@
 import gradio as gr
 
 #MAIN
-version = "5.15.18"
+version = "0.0.0"
 env = "dev"
 aplicacion = "superheroes-dev" #como se llama en tu repo y tu dominio.
 
