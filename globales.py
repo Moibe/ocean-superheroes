@@ -1,7 +1,7 @@
 import gradio as gr
 
 #MAIN
-version = "0.0.0"
+version = "0.0.1"
 env = "dev"
 aplicacion = "superheroes-dev" #como se llama en tu repo y tu dominio.
 
@@ -17,6 +17,6 @@ process_cost = 25
 seto = "splashmix"
 work = "picswap"
 app_path = "/superheroes-dev"
-server_port=7880
+server_port=7888
 tema = gr.themes.Default()
 flag = "auto"
