@@ -4,12 +4,10 @@ import sulkuPypi
 import sulkuFront
 import gradio as gr
 import gradio_client
-import splashmix.splash_tools as splash_tools
 import splashmix.prompter as prompter
 import tools
-import time
-
-tipo_api = None
+import random
+import splashmix.splash_tools as splash_tools
 
 btn_buy = gr.Button("Get Credits", visible=False, size='lg')
 
@@ -47,12 +45,7 @@ def perform(input1, request: gr.Request):
 #MASS es la que ejecuta la aplicación EXTERNA
 def mass(input1):
 
-    if globales.same_api == False: #Si son diferentes apis, realiza el proceso de selección.
-        api, tipo_api = tools.elijeAPI()
-        print("Una vez elegido API, el tipo api es: ", tipo_api)
-    else: #Si no, deja la primera y no corras ningun proceso. 
-        api = globales.api_zero
-        tipo_api = "cost"
+    api, tipo_api = tools.eligeAPI(globales.seleccion_api)        
 
     client = gradio_client.Client(api, hf_token=bridges.hug)
     #client = gradio_client.Client("https://058d1a6dcdbaca0dcf.gradio.live/")  #MiniProxy
@@ -69,7 +62,7 @@ def mass(input1):
     #creacion.style = "Anime"
     prompt = prompter.prompteador(creacion) 
     ########################################  
-    
+
     try:        
         result = client.predict(
                 imagenSource,
@@ -85,7 +78,7 @@ def mass(input1):
                 depth_strength=0.4,
                 controlnet_selection=["depth"], #pueden ser ['pose', 'canny', 'depth'] #Al parecer pose ya no.
                 guidance_scale=5,
-                seed=42, 
+                seed=random.randint(0, 2147483647), 
                 scheduler="EulerDiscreteScheduler",
                 enable_LCM=False,
                 enhance_face_region=True,
@@ -108,8 +101,7 @@ def mass(input1):
         # result = ast.literal_eval(result)  
 
         #(Si llega aquí, debes debitar de la quota, incluso si detecto no-face o algo.)
-        if tipo_api == "gratis":
-            print("Como el tipo api fue gratis, si debitaremos la quota.")
+        if tipo_api == "quota":
             sulkuPypi.updateQuota(globales.process_cost)
         #No debitas la cuota si no era gratis, solo aplica para Zero.  
         
@@ -117,8 +109,5 @@ def mass(input1):
         return result
 
     except Exception as e:
-        print("Hubo un errora al ejecutar MASS:", e)
-        #Errores al correr la API.
-        #La no detección de un rostro es mandado aquí?! Siempre?
         mensaje = tools.titulizaExcepDeAPI(e)        
         return mensaje
