@@ -3,7 +3,9 @@ import gradio as gr
 import globales
 from huggingface_hub import HfApi
 import bridges
-import sulkuPypi
+import importlib
+import fireWhale
+import os 
 import time
 
 def theme_selector():
@@ -19,15 +21,13 @@ def theme_selector():
     return tema
 
 def eligeAPI(opcion):
-
+    print(opcion)
     funciones = {
         "eligeQuotaOCosto": eligeQuotaOCosto,
         "eligeAOB": eligeAOB,
         "eligeGratisOCosto": eligeGratisOCosto
-    }
-    
+    }    
     if opcion in funciones:
-        print("Opción en Funciones")
         funcion_elegida = funciones[opcion]
         api, tipo_api = funcion_elegida()
     else:
@@ -49,17 +49,18 @@ def eligeGratisOCosto():
 def eligeAOB():
 #Se eligirá cuando se tenga un control sobre la cantidad en queu y se redirija hacia una segunda fuente alternativa.
     # Lista con las opciones
-    #apis = [globales.api_a, globales.api_b]
-    #api_elegida = random.choice(apis)
+    apis = [globales.api_a, globales.api_b]
+    api_elegida = random.choice(apis)
     #IMPORTANTE, aquí A o B por ahora siempre será A, porque queremos que lo haga con MP3.
-    api_elegida = globales.api_a
+    #api_elegida = globales.api_a
     print("Print api elegida: ", api_elegida)
     api, tipo_api = api_elegida
     return api, tipo_api
 
 def eligeQuotaOCosto():
 #Se eligirá en los casos en los que se use Zero, para extender las posibilidades de Quota y después usar Costo.
-    diferencia = sulkuPypi.getQuota() - globales.process_cost
+    #diferencia = sulkuPypi.getQuota() - globales.process_cost
+    diferencia = fireWhale.obtenDato("quota", "quota", "segundos") - globales.process_cost
 
     if diferencia >= 0:
         #Entonces puedes usar Zero.
@@ -67,12 +68,10 @@ def eligeQuotaOCosto():
         #Además Si el resultado puede usar la Zero "por última vez", debe de ir prendiendo la otra.
         #if diferencia es menor que el costo de un sig.  del proceso, ve iniciando ya la otra API.
         if diferencia < globales.process_cost:
-            print("Preventivamente iremos prendiendo la otra.")
             initAPI(globales.api_cost) 
     else:
         api, tipo_api = globales.api_cost
 
-    print("La API elegida es: ", api)
     return api, tipo_api
 
 def initAPI(api):
@@ -83,12 +82,10 @@ def initAPI(api):
         repo_id = api
         llave = HfApi(token=bridges.hug)
         runtime = llave.get_space_runtime(repo_id=repo_id)
-        print("Stage: ", runtime.stage)
         #"RUNNING_BUILDING", "APP_STARTING", "SLEEPING", "RUNNING", "PAUSED", "RUNTIME_ERROR"
         if runtime.stage == "SLEEPING":
             llave.restart_space(repo_id=repo_id)
-            print("Despertando")
-        print("Hardware: ", runtime.hardware)
+            print("Hardware: ", runtime.hardware)
         result_from_initAPI = runtime.stage
 
     except Exception as e:
@@ -98,7 +95,7 @@ def initAPI(api):
     
     return result_from_initAPI
 
-def titulizaExcepDeAPI(e):  
+def titulizaExcepDeAPI(e): 
     #Resume una excepción a un título manejable.
     if "RUNTIME_ERROR" in str(e):
         resultado = "RUNTIME_ERROR" #api mal construida tiene error.
@@ -112,6 +109,8 @@ def titulizaExcepDeAPI(e):
         resultado = "HANDSHAKE_ERROR"
     elif "File None does not exist on local filesystem and is not a valid URL." in str(e):
         resultado = "NO_FILE"
+    elif "too many values to unpack (expected 2)" in str(e): #No es lo ideal pero instantid no envía mensaje tan específico, FUTURE: tendrías que modificarlo haya y no se si lo valga. 
+        resultado = "NO_FACE"
     #A partir de aquí son casos propios de cada aplicación.
     elif "Unable to detect a face" in str(e):
         resultado = "NO_FACE"
@@ -147,8 +146,6 @@ def desTuplaResultado(resultado):
     #Procesa la tupla recibida y la convierte ya sea en imagen(path) o error(string)       
     if isinstance(resultado, tuple):
 
-        print("El resultado fue una tupla, ésta tupla:")
-        print(resultado)
         ruta_imagen_local = resultado[0]
         print("Ésto es resultado ruta imagen local: ", ruta_imagen_local)
         return ruta_imagen_local       
@@ -175,3 +172,62 @@ def desTuplaResultado(resultado):
             # concurrents = concurrents + 1
         finally: 
             pass
+
+def get_mensajes(idioma):
+    """
+    Obtiene el módulo de mensajes correspondiente al idioma especificado.
+    Args:
+        idioma (str): Código del idioma (ej: 'es', 'en').
+    Returns:
+        module: Módulo de mensajes cargado dinámicamente.
+    """
+    #Primero el módulo normal de mensajes.
+    try:
+        # Intenta cargar el módulo correspondiente
+        module_mensajes = importlib.import_module(f"messages.{idioma}")
+        
+    except ImportError:
+        # Si ocurre un error al importar, carga un módulo por defecto (opcional)
+        print(f"Idioma '{idioma}' no encontrado. Cargando módulo por defecto.")
+        module_mensajes = importlib.import_module("messages.en")  # Por ejemplo, inglés como defecto
+    #Y después el módulo de Sulku.
+    try:
+        # Intenta cargar el módulo correspondiente
+        module_sulku = importlib.import_module(f"messages_sulku.{idioma}")
+        
+    except ImportError:
+        # Si ocurre un error al importar, carga un módulo por defecto (opcional)
+        print(f"Idioma '{idioma}' no encontrado. Cargando módulo por defecto.")
+        module_sulku = importlib.import_module("messages_sulku.en")  # Por ejemplo, inglés como defecto 
+    
+    return module_mensajes, module_sulku   
+
+def renombra_imagen(hero, resultado):
+
+    timestamp_segundos = int(time.time())
+    print(timestamp_segundos)
+
+    hero = hero.replace(" ", "")
+
+    # 1. Obtener el directorio y el nombre del archivo original
+    directorio = os.path.dirname(resultado)
+    nombre_original = os.path.basename(resultado)
+
+    # 2. Crear el nuevo nombre del archivo
+    nuevo_nombre = f"{hero}-{timestamp_segundos}.jpg"
+    nueva_ruta = os.path.join(directorio, nuevo_nombre)
+
+    # 3. Renombrar el archivo
+    try:
+        os.rename(resultado, nueva_ruta)
+    except FileNotFoundError:
+        print(f"Error: El archivo '{resultado}' no existe.")
+    except FileExistsError:
+        print(f"Error: El archivo '{nueva_ruta}' ya existe.")
+    except Exception as e:
+        print(f"Error inesperado: {e}")
+
+    # 4. (Opcional) Actualizar la variable 'resultado' con la nueva ruta
+    resultado = nueva_ruta
+   
+    return resultado
