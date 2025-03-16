@@ -4,7 +4,7 @@ app_path = "/superheroes" #Muy importante para que cargue bien app.py
 server_port=7888
 
 #MAIN
-version = "2.0.3" #Cambios en FireWhale, Selección de Personajes.
+version = "2.0.4" #Fix Mantis.
 #env = "prod"
 #aplicacion = "superheroes" #como se llama en tu repo y tu dominio.
 
